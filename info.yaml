@@ -1,0 +1,117 @@
+(using_atk_version): 1.1.0
+(project):
+    name: EZ-Docker
+    description: A template to merge into projects that gets docker running
+    
+    (commands):
+        build: ruby scripts/build.rb
+        run: ruby scripts/run.rb
+        edit: ruby scripts/edit.rb
+        remove: ruby scripts/remove.rb
+        convert_name: ruby scripts/convert_name.rb
+    
+    (paths):
+        project_root: ./
+
+containerizer:
+    folder_for_executables: ./project_bin
+    folder_with_dockerfiles: ./project_bin/dockerfiles
+    commands:
+        python:
+            - use_dockerfile: main
+            - --entrypoint: /usr/bin/python3
+
+explaination/planning:
+    - there needs to be a bin file for the commands that can be executed
+    - every OS should be able to start the exeutables (non specific to bash)
+    - each custom docker image (custom dependencies) will need to be built
+    
+    todo:
+        - fix the matplotlib issue
+        - setup for docker gpu
+    
+    - each docker image (build) should:
+        - input: needs a unique name based on its filename and path
+        - should ignore everything other than dependency files: |
+            ex: should only need files like package.json or requirements.txt
+            AFAIK this requires creating a .dockerignore file
+            it would be great if there was a commandline option
+        - have the docker command installed:
+            debian example: |
+                RUN apt-get update && \
+                    apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+                    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+                    apt-get update && \
+                    apt-get install -y --allow-downgrades docker-ce docker-ce-cli containerd.io 
+
+    - running the docker image:
+        - needs to pass along env variables to interal processes:
+            --env PROJECT_DIR="$PROJECT_DIR",\
+                  PROJECT_BIN_PATH="$PROJECT_BIN_PATH",\
+                  PROJECT_IMAGE_PREFIX="$PROJECT_IMAGE_PREFIX"
+        - needs to have all the project code:
+            -v "$PROJECT_PATH":/project
+            project path needs to always be the absolute path on the host machine
+        - should have access to project executables:
+            --env PATH="/project/${PROJECT_BIN_PATH}:${PATH}"
+        - needs to forward the correct CWD:
+            - find the CWD relative to the current project dir
+            - --workdir "$CWD"
+        - should be told what command to execute:
+            --entrypoint
+        - needs to be interactive:
+            -it
+        - should delete the container after it is done:
+            --rm
+            # TODO: in the future see if there is a way to speed processes up by reusing containers
+        - should be able to create sibiling docker processes:
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /usr/local/bin/docker:/usr/local/bin/docker \
+            # FIXME: this probably won't work on windows
+        - should forward all ports to the host machine:
+            --network=host
+        - probably want to have safe multithreading:
+            --init
+            # this will make it so that zombie processes are reaped
+            # I'm still not exactuly sure how it works  https://stackoverflow.com/questions/43122080/how-to-use-init-parameter-in-docker-run 
+        - should disable all future options:
+            --
+        - should forward all arguments:
+            "$@"
+    
+    - the generate command for the user:
+        - should find the project directory and store it in the system ENV variable "PROJECT_DIR"
+        - should read the info.yaml:
+            - should find the project_bin
+            - should find the folder with the dockerfiles
+            - should find the containerized commands
+        - should set the system ENV variable "PROJECT_BIN_PATH" to be what was extracted from the yaml file
+        - should set the system ENV variable "PROJECT_IMAGE_PREFIX" to be a hash of the project's absolute path
+        - check that all docker images exist:
+            - iterate through every command
+            - generate the image name as "$PROJECT_IMAGE_PREFIX" and the tag based on the name of the dockerfile
+            - ask docker if that image already exists, and if it doesn't then build the image
+        - create all the commands:
+            - for each command, create a shell script:
+                - needs to figure out what the new working directory should be based on the current working directory relative to the project dir
+                  can be done by having the parent run command do its own calulation of the docker command independent of the shell file
+                - needs to figure out the docker image name
+                  can be done by using an ENV variable that is always passed down
+                - needs to figure out the absolute project path
+                  can be done by using an ENV variable that is always passed down
+                - generate all of the options, but allow overriding the options based on the yaml data for each containerized command
+        - return the ENV variables and data from the info.yaml
+        
+    - the run command for the user:
+        - should receive the command name and arguments
+        - should call the generate command, and get the data from it
+        - should generate the docker command options dynamically based on the host OS
+        - execs that docker command
+    
+    - the build command for the user
+    - the destroy command for the user
+    - the stop command for the user
+    - the edit command for the user
+    - the export command for the user
+    - the import command for the user
