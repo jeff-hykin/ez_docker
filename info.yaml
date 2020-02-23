@@ -12,6 +12,7 @@
     
     (paths):
         project_root: ./
+        xquartz_settings: resources/xquartz_settings.plist
 
 containerizer:
     folder_for_executables: ./project_bin
@@ -28,6 +29,7 @@ explaination/planning:
     
     todo:
         - fix the matplotlib issue
+        - get camera feed working through docker
         - setup for docker gpu
     
     - each docker image (build) should:
