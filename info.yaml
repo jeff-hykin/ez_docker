@@ -22,12 +22,46 @@ containerizer:
             - use_dockerfile: main
             - --entrypoint: /usr/bin/python3
 
+look at later:
+            require 'atk_toolbox'
+            name = Info['(project)']['name']
+            docker = ->(*args) do
+                if OS.is? :linux
+                    system("sudo", "docker", *args)
+                else 
+                    system("docker", *args)
+                end
+            end
+            if docker["image", "history", name, err:"/dev/null", out:"/dev/null"]
+                image = name
+            else 
+                image = "ubuntu:bionic-20200112"
+            end
+            ports = Info['(project)']['ports'].map{|each| ["--expose=#{each}", "-p", "#{each}:#{each}"] }.flatten
+            command_arguments = [
+                "run",
+                "--interactive", "--tty",
+                "--volume", "#{Dir.pwd}:/project",
+                "--workdir", "/project",
+                "--env", "LANG=en_US.utf8",
+                *ports,
+                "--name", name,
+                image
+            ]
+            puts ["docker", *command_arguments].join(" ").blue
+            docker[*command_arguments]
+            docker[ "commit", name, name ] if Console.yes?("save changes?")
+            docker[ "stop", name, err:"/dev/null", out:"/dev/null" ]
+            docker[ "rm", name, err:"/dev/null", out:"/dev/null" ]
+
+
 explaination/planning:
     - there needs to be a bin file for the commands that can be executed
     - every OS should be able to start the exeutables (non specific to bash)
     - each custom docker image (custom dependencies) will need to be built
     
     todo:
+        - fix the port forwarding issue: https://github.com/hiroshi/docker-dns-proxy
         - fix the matplotlib issue
         - get camera feed working through docker
         - setup for docker gpu
